@@ -1,0 +1,9 @@
+#ignore large files
+#
+#
+datasets_old/
+test_datasets/
+thesis_datasets/
+v2/
+datasets/
+

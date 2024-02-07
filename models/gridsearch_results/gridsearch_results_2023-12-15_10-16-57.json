@@ -1,0 +1,16 @@
+{
+  "16K_5_v2": {
+    "RF": {
+      "test_f1": 0.7555555555555554,
+      "test_auc": 0.9209826992156002,
+      "test_precision": 1.0,
+      "test_recall": 0.6071428571428571,
+      "bootstrap": true,
+      "max_depth": 50,
+      "n_estimators": 50,
+      "max_features": "sqrt",
+      "min_samples_leaf": 2,
+      "min_samples_split": 10
+    }
+  }
+}
