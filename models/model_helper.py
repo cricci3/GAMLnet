@@ -11,9 +11,9 @@ from torch_geometric.data import Data
 from models.MPNN import GNN_MPNN_Model
 from models.SAGE import GNN_SAGE_Model
 from models.CONV import GNN_CONV_Model
-from models.GIN3 import GNN_GIN_Model
+from models.GIN import GNN_GIN_Model
 from models.GAT import GNN_GAT_Model
-from models.GINSAGE import GNN_GINSAGE_Model
+from models.GAMLNET import GNN_GAMLNET_Model
 from torch_geometric.nn import Sequential, GAT, GIN, GraphSAGE
 import time
 from sklearn.metrics import roc_curve, auc, precision_recall_fscore_support
@@ -32,8 +32,8 @@ class Dataset:
 
     def load_dataset(self,folder,splits=[.35,.15,.50],split_type="normal",split_seed=0):  
         self.folder = folder
-        accounts_df = pd.read_csv("../datasets/"+folder+"/account_attributes.csv")
-        transactions_df = pd.read_csv("../datasets/"+folder+"/transactions.csv")
+        accounts_df = pd.read_csv(folder+"/account_attributes.csv")
+        transactions_df = pd.read_csv(folder+"/transactions.csv")
 
         nodes_df = accounts_df
         edges_df = transactions_df
@@ -43,12 +43,12 @@ class Dataset:
         print("loading dataset",folder,"|","length:",nodes_df.shape[0],"| fraud percentage (%):",fp)
 
         x_np = nodes_df.to_numpy()
-        x = x_np[:,0:-2]
+        X = x_np[:,0:-2]
         
         self.feature_labels = nodes_df.columns.tolist()
         
         # Define your graph
-        x = torch.tensor(x)  # (n x features)
+        X = torch.tensor(X)  # (n x features)
         edge_index =  torch.stack([torch.tensor(edges_df.orig_acct.to_numpy()),torch.tensor(edges_df.bene_acct.to_numpy())],dim=-1).T  # Define your edge index
         #edge_attr = torch.nn.functional.normalize(torch.tensor(np.array(edges_df[['amount','oldBalanceOrig', 'newBalanceOrig', 'oldBalanceDest', 'newBalanceDest','isFlaggedFraud','isUnauthorizedOverdraft','action_CASH_IN','action_CASH_OUT','action_DEBIT','action_PAYMENT','action_TRANSFER']].values,dtype='float32')),dim=0) # edge features
         edge_weight = torch.nn.functional.normalize(torch.tensor(edges_df.base_amt.to_numpy()),dim=0).long()
@@ -59,21 +59,21 @@ class Dataset:
 
         #normalization methods
         # method 1
-        #x = torch.nn.functional.normalize(x,dim=0).to(torch.float16)
-        x = torch.nn.functional.normalize(x,dim=0).to(torch.float32)
+        #X = torch.nn.functional.normalize(X,dim=0).to(torch.float16)
+        X = torch.nn.functional.normalize(X,dim=0).to(torch.float32)
         #dim 0 is vertical (features)
         #dim 1 is horizontal (nodes)
         
         # method 2
-        #x -= x.min()
-        #x /= x.max()
-        #x=x.to(torch.float32)
+        #X -= X.min()
+        #X /= X.maX()
+        #X=X.to(torch.float32)
 
         # method 3
-        #mu = x.mean(dim=1, keepdim=True)
-        #std = x.std(dim=1, keepdim=True)
-        #x = (x-mu)
-        #x = torch.where(std != 0, x/std, 0).to(torch.float32)
+        #mu = X.mean(dim=1, keepdim=True)
+        #std = X.std(dim=1, keepdim=True)
+        #X = (X-mu)
+        #X = torch.where(std != 0, X/std, 0).to(torch.float32)
 
 
 
@@ -111,9 +111,7 @@ class Dataset:
 
         
         # Load your data into PyTorch Geometric's Data class
-        #data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, y=y,train_mask=train_mask, val_mask=val_mask, test_mask=test_mask)
-        #data = Data(x=x, edge_index=edge_index, y=y,train_mask=train_mask, val_mask=val_mask, test_mask=test_mask)
-        self.data = Data(x=x, edge_index=edge_index, edge_weight=edge_weight, y=y,train_mask=self.train_mask, val_mask=self.val_mask, test_mask=self.test_mask)
+        self.data = Data(X=X, edge_index=edge_index, edge_weight=edge_weight, y=y,train_mask=self.train_mask, val_mask=self.val_mask, test_mask=self.test_mask)
         self.data.to(self.device)
 
 class Model:
@@ -125,7 +123,7 @@ class Model:
         self.criterion = None
         self.model = None
         self.lr = 0.005
-        self.w = 0.23
+        self.beta = 0.23
         self.w2 = [1,len(data.y==0)/len(data.y==1)]
         self.save_model = save_model
         self.save_model_path = save_model_path
@@ -143,7 +141,7 @@ class Model:
 
 
     def load_model(self,model_type, K=1, F=8, additional_params={}):
-        self.dataset_num_features = self.data.x.size()[1]
+        self.dataset_num_features = self.data.X.size()[1]
         self.dataset_num_classes = 2
         self.K = K
         self.F = F
@@ -162,11 +160,11 @@ class Model:
         elif model_type == "GIN":
             #self.model = GIN(in_channels=self.dataset_num_features, hidden_channels=self.F, num_layers=self.K, out_channels=self.dataset_num_classes)
             self.model = GNN_GIN_Model(hidden_size=self.F, input_size=self.dataset_num_features, output_size=self.dataset_num_classes, num_layers=self.K)
-        elif model_type == "GINSAGE":
+        elif model_type == "GAMLNET":
 
             print(self.additional_params)
 
-            self.model = GNN_GINSAGE_Model(hidden_size1=self.additional_params['F1'],
+            self.model = GNN_GAMLNET_Model(hidden_size1=self.additional_params['F1'],
                  hidden_size2=self.additional_params['F2'],
                  input_size1=len(self.additional_params['gin_feature_indices']), 
                  input_size2=self.dataset_num_features,
@@ -180,7 +178,7 @@ class Model:
         #self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=5e-4)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, amsgrad=True)
         #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=0.9)
-        self.criterion = torch.nn.CrossEntropyLoss(weight=torch.tensor([self.w,1.0]).to(self.device))
+        self.criterion = torch.nn.CrossEntropyLoss(weight=torch.tensor([self.beta,1.0]).to(self.device))
         #self.criterion = torch.nn.CrossEntropyLoss(weight=torch.tensor(self.w2).to(self.device))
         self.model.to(self.device)
 
@@ -193,9 +191,9 @@ class Model:
             self.model.train()
             self.optimizer.zero_grad()
             # We now give as input also the graph connectivity
-            out = self.model(self.data.x, self.data.edge_index)
+            out = self.model(self.data.X, self.data.edge_index)
             
-            #out = model(data.x, data.edge_index,data.edge_weight)
+            #out = model(data.X, data.edge_index,data.edge_weight)
             #print(len(out[data.train_mask]),len(data.y[data.train_mask]))
             #loss = self.criterion(out[self.data.train_mask].to(torch.float32), self.data.y[self.data.train_mask])
             loss = self.criterion(out[self.data.train_mask], self.data.y[self.data.train_mask])
@@ -232,7 +230,7 @@ class Model:
                     best_f1_val_score = f1_score
                     if self.save_model == True:
                         torch.save(self.model.state_dict(), self.save_model_path)
-                    if self.gridsearch_flag == True:
+                    if self.gridsearch_flag == True: #THIS IS USUALLY USED IN COMBINATION WITH THE GRIDSEARCH FILE. this is only a component of the gridsearch
                         test_acc, test_out, test_pred = self.test(self.data.test_mask,self.data)
                         precision, recall, f1_score, _ = precision_recall_fscore_support(self.data.y[self.data.test_mask].cpu(), test_pred.cpu(), average='binary')
                         y_true = self.data.y[self.data.test_mask].cpu()
@@ -244,6 +242,7 @@ class Model:
                         self.gridsearch_results['test_recall'] = recall
                         self.gridsearch_results['test_auc'] = roc_auc
                         self.gridsearch_results['test_epoch'] = epoch
+                        self.run_results = self.gridsearch_results #simply show the run results outside of the full gridsearch setting
                 '''
                 if f1_score > self.best_f1_from_gs:
                     tpfp = self.check_topology_performance('v2/128K_05_v2_2', self.data)
@@ -270,8 +269,8 @@ class Model:
 
     def test(self,mask,data):
         self.model.eval()
-        out = self.model(data.x, data.edge_index)
-        #out = model(data.x, data.edge_index,data.edge_weight)
+        out = self.model(data.X, data.edge_index)
+        #out = model(data.X, data.edge_index,data.edge_weight)
         pred = out.argmax(dim=1)
         test_correct = pred[mask] == data.y[mask]
         test_acc = int(test_correct.sum()) / int(mask.sum())
@@ -302,7 +301,7 @@ class Model:
         y_true = data.y[data.test_mask].cpu()
         precision, recall, f1_score, _ = precision_recall_fscore_support(data.y[data.test_mask].cpu(), test_pred.cpu(), average='binary')
         
-        accounts_df = pd.read_csv("../datasets/"+folder+"/account_attributes.csv")
+        accounts_df = pd.read_csv(folder+"/account_attributes.csv")
 
         indicies = accounts_df.index
 
@@ -311,22 +310,22 @@ class Model:
 
         # True Positives (TP)
         tp_indices = np.where((out == 1) & (true_labels == 1))[0]
-        print("true positives =",len(tp_indices))
+        #print("true positives =",len(tp_indices))
         tp_indices = indicies[data.test_mask.cpu().numpy()][tp_indices]
 
         # True Negatives (TN)
         tn_indices = np.where((out == 0) & (true_labels == 0))[0]
-        print("true negatives =",len(tn_indices))
+        #print("true negatives =",len(tn_indices))
         tn_indices = indicies[data.test_mask.cpu().numpy()][tn_indices]
 
         # False Positives (FP)
         fp_indices = np.where((out == 1) & (true_labels == 0))[0]
-        print("false positives =",len(fp_indices))
+        #print("false positives =",len(fp_indices))
         fp_indices = indicies[data.test_mask.cpu().numpy()][fp_indices]
 
         # False Negatives (FN)
         fn_indices = np.where((out == 0) & (true_labels == 1))[0]
-        print("false negatives =",len(fn_indices))
+        #print("false negatives =",len(fn_indices))
         fn_indices = indicies[data.test_mask.cpu().numpy()][fn_indices]
 
         '''
@@ -354,7 +353,7 @@ class Model:
 
         #np.sum(accounts_df['trained_color'] == 0), len(train_dataset), len(val_dataset), len(test_dataset)
 
-        sar_df = pd.read_csv("../datasets/"+folder+"/alert_accounts.csv")
+        sar_df = pd.read_csv(folder+"/alert_accounts.csv")
 
         ids_cycle = sar_df["acct_id"][sar_df["alert_type"]=='cycle'].to_numpy() #super important to convert to numpy array!!!!! keeping as pandas series messes up all indexing!!!
         ids_fan_in = sar_df["acct_id"][sar_df["alert_type"]=='fan_in'].to_numpy()
@@ -371,13 +370,6 @@ class Model:
         labels_test_set = data.y[data.test_mask].cpu().numpy()
         predictions_test_set = test_pred.numpy()
         correct_pos_pred = np.logical_and(labels_test_set, predictions_test_set) # is can only equal 1 if both label and precition were 1
-        print('correct_pos_pred',correct_pos_pred)
-        print("sanity check: num true positives, num total positives, sanity check, recall")
-        print(np.sum(correct_pos_pred), np.sum(labels_test_set), np.round(np.sum(correct_pos_pred)/np.sum(labels_test_set),4), np.round(recall,4))
-        print(len(correct_pos_pred), len(ids_test_set),len(sar_df["acct_id"]))
-        print(len(labels_test_set),len(predictions_test_set))
- 
-        print(type(ids_test_set))
 
         pred_cycle = correct_pos_pred[[e in ids_cycle for e in ids_test_set]]
         pred_fan_in = correct_pos_pred[[e in ids_fan_in for e in ids_test_set]]
@@ -386,24 +378,18 @@ class Model:
         pred_scatter_gather = correct_pos_pred[[e in ids_scatter_gather for e in ids_test_set]]
         pred_bipartite = correct_pos_pred[[e in ids_bipartite for e in ids_test_set]]
         pred_stack = correct_pos_pred[[e in ids_stack for e in ids_test_set]]
-        print('pred cycle',pred_cycle)
-
-        #sanity check
-        print('sanity check')
-        print((len(pred_cycle) + len(pred_fan_in) + len(pred_fan_out) + len(pred_gather_scatter) + len(pred_scatter_gather)), np.sum(np.array(labels_test_set)), np.sum(np.array(correct_pos_pred)), len(correct_pos_pred))
 
         topologies = ('Cycle', 'Fan In', 'Fan Out', 'Gather Scatter', 'Scatter Gather', 'Bipartite', 'Stack')
 
         tp = np.round(np.array([np.sum(pred_cycle)/len(pred_cycle), np.sum(pred_fan_in)/len(pred_fan_in), np.sum(pred_fan_out)/len(pred_fan_out), np.sum(pred_gather_scatter)/len(pred_gather_scatter), np.sum(pred_scatter_gather)/len(pred_scatter_gather), np.sum(pred_bipartite)/len(pred_bipartite), np.sum(pred_stack)/len(pred_stack)]),2)
         fp = np.ones(len(tp)) - tp
-        print(tp)
         topology_counts = {
             'True Positive': tp,
             'False Positive': fp,
         }
-        width = 0.6  # the width of the bars: can also be len(x) sequence
+        width = 0.6  # the width of the bars: can also be len(X) sequence
         #print(1)
-        '''     
+            
         fig, ax = plt.subplots()
         #print(2)
         bottom = np.zeros(7)
@@ -422,5 +408,5 @@ class Model:
 
         plt.show()
         #plt.savefig('topologies_perf.png')
-        '''
+        
         return [tp,fp]
