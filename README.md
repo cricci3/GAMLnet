@@ -7,7 +7,7 @@ This repository contains the official code for the paper "*GAMLNet: a graph base
 </div>
 
 ### Install instructions
-You will need to install the requried dependencies before running the code. You can create the conda environment with `conda env create -f GAMLNet_env.yml`. After you'll need to activate the environment with `conda activate GAMLNet`.
+You will need to install the requred dependencies before running the code. You can create the conda environment with `conda env create -f GAMLNet_env.yml`. After you'll need to activate the environment with `conda activate GAMLNet`.
 
 A tutorial jupyter notebook on how to run the code is provided in the main directory. This shows how to load datasets and run the model.
 
