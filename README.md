@@ -27,6 +27,11 @@ Dataset 8K_5 visualzied below (8,000 nodes with 5% anomaly). Nodes in red are an
 </div>
 
 ### GAMLNet architecture
+
+We propose the *GAMLNet (Graph Anti-Money Laundering Network)* architecture, leveraging the strengths of two popular GNN variants: Graph Isomorphism Networks (GIN) [Xu et al., 2019] and GraphSAGE [Hamilton et al., 2017]. GIN performs exceptionally well at learning isomorphic graph substructures and GraphSAGE performs exceptionally well in environments with rich statistical node feature information.
+
+
+
 <div align="center">
   <img src="https://drive.google.com/uc?export=view&id=19Oa2mZgP4pEqIXMvCO1L0gih9yBwS1WP" alt="GAMLNet architecture figure" width="800">
 </div>
