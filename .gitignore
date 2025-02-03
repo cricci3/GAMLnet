@@ -1,9 +1,0 @@
-#ignore large files
-#
-#
-datasets/32K_v5/
-datasets/64K_v5/
-datasets/128K_v5/
-datasets/128K_v1/
-datasets/128K_v10/
-datasets/128K_v05/
