@@ -55,4 +55,3 @@ class GNN_GAMLNET_Model(torch.nn.Module):
         out = self.sage_model(x, edge_index)
 
         return out
-
