@@ -87,7 +87,7 @@ class Dataset:
 
 
 class Model:
-    def __init__(self,data,save_model=False,save_model_path="default.pth", gridsearch_flag=False):
+    def __init__(self, data,save_model=False,save_model_path="default.pth", gridsearch_flag=False):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         print("device:",self.device)
         self.data = data
@@ -112,14 +112,30 @@ class Model:
             self.writer = SummaryWriter()
 
 
-    def load_model(self, K=1, F=8, additional_params={}):
+    def load_model(self, model_name, K=1, F=8, additional_params={}):
         self.dataset_num_features = self.data.X.size()[1]
         self.dataset_num_classes = 2
         self.K = K
         self.F = F
         self.additional_params = additional_params
+        self.model_name = model_name
 
-        self.model = GNN_GIN_Model(hidden_size=self.F, input_size=self.dataset_num_features, output_size=self.dataset_num_classes, num_layers=self.K)
+        if model_name == "GIN":
+            self.model = GNN_GIN_Model(hidden_size=self.F, input_size=self.dataset_num_features, output_size=self.dataset_num_classes, num_layers=self.K)
+        elif model_name == "GAMLNet":
+            print(self.additional_params)
+
+            self.model = GNN_GAMLNET_Model(hidden_size1=self.additional_params['F1'],
+                 hidden_size2=self.additional_params['F2'],
+                 input_size1=len(self.additional_params['gin_feature_indices']), 
+                 input_size2=self.dataset_num_features,
+                 output_size=self.dataset_num_classes,
+                 num_layers1=self.additional_params['K1'],
+                 num_layers2=self.additional_params['K2'],
+                 gin_feature_indices=self.additional_params['gin_feature_indices'])
+        else:
+            print("INVALID MODEL OPTION")
+            
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, amsgrad=True)
         self.criterion = torch.nn.CrossEntropyLoss(weight=torch.tensor([self.beta,1.0]).to(self.device))
         self.model.to(self.device)
