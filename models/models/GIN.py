@@ -24,7 +24,20 @@ class GNN_GIN_Model(torch.nn.Module):
             #in_size = dataset_num_features if l == 0 else hidden_size
             in_size = input_size if l == 0 else hidden_size
             in_size2 = hidden_size + input_size if l == 0 else hidden_size*2
-            conv = GINConv(in_channels=in_size, out_channels=hidden_size,nn= Linear(in_size, hidden_size))
+            
+            # My code with fixes
+            # Define an MLP for GINConv
+            mlp = torch.nn.Sequential(
+                Linear(in_size, hidden_size),
+                ReLU(),
+                Linear(hidden_size, hidden_size)
+            )
+            # GINConv takes only the MLP, not in_channels/out_channels
+            conv = GINConv(mlp)
+
+
+            # -> Original code but error
+            # conv = GINConv(in_channels=in_size, out_channels=hidden_size,nn= Linear(in_size, hidden_size))
             #conv = GINConv(in_channels=in_size, out_channels=hidden_size,nn= MLP(in_size, [hidden_size,hidden_size]))
             
             #mpnn = MPNN(in_channels=in_size, out_channels=hidden_size, in_channels2=in_size2)
